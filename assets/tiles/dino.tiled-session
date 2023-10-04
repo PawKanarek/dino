@@ -3,10 +3,15 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "",
+    "activeFile": "level_02.tmx",
     "expandedProjectPaths": [
+        "."
     ],
     "fileStates": {
+        "dino.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
         "level_01.tmx": {
             "expandedObjectLayers": [
                 2
@@ -19,11 +24,14 @@
             }
         },
         "level_02.tmx": {
+            "expandedObjectLayers": [
+                2
+            ],
             "scale": 1.260234375,
             "selectedLayer": 1,
             "viewCenter": {
                 "x": 320.5752898146426,
-                "y": 184.48949228194164
+                "y": 194.01153059326765
             }
         }
     },
@@ -34,9 +42,15 @@
     "map.tileWidth": 16,
     "map.width": 40,
     "openFiles": [
+        "dino.tsx",
+        "level_01.tmx",
+        "level_02.tmx"
     ],
     "project": "dino.tiled-project",
     "recentFiles": [
+        "dino.tsx",
+        "level_01.tmx",
+        "level_02.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.tileSize": {

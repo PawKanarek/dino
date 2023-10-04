@@ -1,4 +1,4 @@
-import 'package:dino/dino.dart';
+import 'package:dino/dino_game.dart';
 import 'package:flame/flame.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
@@ -9,8 +9,8 @@ void main() async {
   await Flame.device.fullScreen();
   await Flame.device.setLandscape();
 
-  Dino game = Dino();
+  DinoGame game = DinoGame();
   runApp(
-    GameWidget(game: kDebugMode ? Dino() : game),
+    GameWidget(game: kDebugMode ? DinoGame() : game),
   );
 }
