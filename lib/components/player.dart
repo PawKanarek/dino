@@ -11,16 +11,27 @@ class Player extends SpriteAnimationGroupComponent
   late final RectangleHitbox hitbox;
   late final SpriteAnimation idleAnimation;
   late final SpriteAnimation runningAnimation;
+  late final SpriteAnimation jumpingAnimation;
+  late final SpriteAnimation fallingAnimation;
   final double stepTime = 0.05;
   String character;
-  double moveSpeed = 100;
+  static const double speeds = 2;
+  double moveSpeed = 100 * speeds;
+  final double _graviy = 9.8 * speeds;
+  final double _jumpForce = 300 * speeds;
+  final double _terminalVelocity = 900 * speeds;
+
   double horizontalMovement = 0;
+  bool startJump = false;
+  bool isJumping = false;
   Vector2 velocity = Vector2.zero();
   bool isFacingRight = true;
   bool isCollidingWithPlatform = false;
   List<CollisionBlock> collisionBlocks = [];
-  Set<Side> collisionSides = {};
-  Map<int, Set<Side>> currentCollisions = {};
+  Set<Side> collidedPlayerSides = {};
+  Map<int, Set<Side>> collidedObjects = {};
+  PlayerHitbox hitbox_2 =
+      PlayerHitbox(offsetX: 10, offsetY: 4, width: 14, height: 28);
 
   Player({
     position,
@@ -32,25 +43,32 @@ class Player extends SpriteAnimationGroupComponent
   }
 
   @override
-  void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
+  void onCollisionStart(
+      Set<Vector2> intersectionPoints, PositionComponent other) {
+    print("delay: ${DateTime.now().difference(time)}");
     if (other is CollisionBlock) {
-      var sides = _collisionCheck(other);
-      collisionSides.addAll(sides);
-      currentCollisions[other.hashCode] = sides;
-      if (isCollidingWithPlatform && collisionSides.contains(Side.top)) {
-        collisionSides.remove(Side.top);
+      var newSides = _collisionSides(other);
+      var currentSides = collidedObjects[other.hashCode];
+      if (currentSides != null && !currentSides.containsAll(newSides)) {
+        // colision sides beetwen object and player has changed
+        collidedPlayerSides.remove(currentSides);
+      }
+      collidedPlayerSides.addAll(newSides);
+      collidedObjects[other.hashCode] = newSides;
+      if (isCollidingWithPlatform && collidedPlayerSides.contains(Side.top)) {
+        collidedPlayerSides.remove(Side.top);
       }
     }
-    super.onCollision(intersectionPoints, other);
+    super.onCollisionStart(intersectionPoints, other);
   }
 
   @override
   void onCollisionEnd(PositionComponent other) {
-    var sides = currentCollisions[other.hashCode];
+    var sides = collidedObjects[other.hashCode];
     if (sides != null) {
-      collisionSides.removeAll(sides);
+      collidedPlayerSides.removeAll(sides);
     }
-    currentCollisions.remove(other.hashCode);
+    collidedObjects.remove(other.hashCode);
 
     super.onCollisionEnd(other);
   }
@@ -65,8 +83,12 @@ class Player extends SpriteAnimationGroupComponent
     final isRightKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyD)) ||
         keysPressed.contains(LogicalKeyboardKey.arrowRight);
 
+    final isUpOrSpace = keysPressed.contains((LogicalKeyboardKey.keyW)) ||
+        keysPressed.contains(LogicalKeyboardKey.arrowUp);
+
     horizontalMovement += isLeftKeyPressed ? -1 : 0;
     horizontalMovement += isRightKeyPressed ? 1 : 0;
+    startJump = isUpOrSpace;
 
     return false;
   }
@@ -74,19 +96,24 @@ class Player extends SpriteAnimationGroupComponent
   @override
   FutureOr<void> onLoad() {
     _loadAllAnimations();
-    hitbox = RectangleHitbox();
+    hitbox = RectangleHitbox(
+      position: Vector2(hitbox_2.offsetX, hitbox_2.offsetY),
+      size: Vector2(hitbox_2.width, hitbox_2.height),
+    );
     add(hitbox);
     return super.onLoad();
   }
 
+  DateTime time = DateTime.now();
   @override
   void update(double dt) {
+    time = DateTime.now();
     _updatePlayerMovement(dt);
     _updatePlayerState();
     super.update(dt);
   }
 
-  Set<Side> _collisionCheck(PositionComponent other) {
+  Set<Side> _collisionSides(PositionComponent other) {
     final playerRect = toRect();
     final blockRect = other.toRect();
     Set<Side> sides = {};
@@ -125,14 +152,18 @@ class Player extends SpriteAnimationGroupComponent
   void _loadAllAnimations() {
     idleAnimation = _spriteAnimation("Idle", 11);
     runningAnimation = _spriteAnimation('Run', 12);
+    fallingAnimation = _spriteAnimation("Fall", 1);
+    jumpingAnimation = _spriteAnimation("Jump", 1);
 
     // sets the List
     animations = {
       PlayerState.idle: idleAnimation,
       PlayerState.running: runningAnimation,
+      PlayerState.falling: fallingAnimation,
+      PlayerState.jumping: jumpingAnimation,
     };
 
-    current = PlayerState.running;
+    current = PlayerState.idle;
   }
 
   SpriteAnimation _spriteAnimation(String state, int amount) {
@@ -147,18 +178,37 @@ class Player extends SpriteAnimationGroupComponent
   }
 
   void _updatePlayerMovement(double dt) {
-    final double hV = horizontalMovement * moveSpeed;
-    final double vV = velocity.y + _graviy;
+    final double horizontalV = horizontalMovement * moveSpeed;
+    double verticalV = 0;
 
-    if (vV > 0 && !collisionSides.contains(Side.bottom) ||
-        (vV < 0 && !collisionSides.contains(Side.top))) {
-      velocity.y = vV.clamp(-_jumpForce, _terminalVelocity);
-      position.y += velocity.y * dt;
+    if (startJump && collidedPlayerSides.contains(Side.bottom)) {
+      startJump = false;
+      verticalV = -_jumpForce;
+      isJumping = true;
+    } else {
+      verticalV = velocity.y + _graviy;
+    }
+    if (isJumping && verticalV >= 0) {
+      isJumping = false;
     }
 
-    if (hV > 0 && !collisionSides.contains(Side.right) ||
-        hV < 0 && !collisionSides.contains(Side.left)) {
-      velocity.x = hV;
+    if (isJumping) {
+      velocity.y = verticalV;
+      position.y += velocity.y * dt;
+      print("jumping");
+    } else if (verticalV > 0 && !collidedPlayerSides.contains(Side.bottom)) {
+      // apply gravity
+      velocity.y = verticalV.clamp(0, _terminalVelocity);
+      position.y += velocity.y * dt;
+      print("falling");
+    } else {
+      print("stay on ground");
+      velocity.y = 0;
+    }
+
+    if (horizontalV > 0 && !collidedPlayerSides.contains(Side.right) ||
+        horizontalV < 0 && !collidedPlayerSides.contains(Side.left)) {
+      velocity.x = horizontalV;
       position.x += velocity.x * dt;
     } else {
       velocity.x = 0;
@@ -178,14 +228,35 @@ class Player extends SpriteAnimationGroupComponent
       playerState = PlayerState.running;
     }
 
+    if (velocity.y < 0) {
+      playerState = PlayerState.jumping;
+    } else if (velocity.y > 0) {
+      playerState = PlayerState.falling;
+    }
+
     current = playerState;
   }
-
-  final double _graviy = 9.8;
-  final double _jumpForce = 460;
-  final double _terminalVelocity = 300;
 }
 
-enum PlayerState { idle, running }
+enum PlayerState {
+  idle,
+  running,
+  jumping,
+  falling,
+}
 
-enum Side { left, right, top, bottom }
+enum Side { left, top, right, bottom }
+
+class PlayerHitbox {
+  final double offsetX;
+  final double offsetY;
+  final double width;
+  final double height;
+
+  PlayerHitbox({
+    required this.offsetX,
+    required this.offsetY,
+    required this.width,
+    required this.height,
+  });
+}
