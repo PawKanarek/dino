@@ -2,22 +2,29 @@ import 'dart:async';
 
 import 'package:dino/components/collision_block.dart';
 import 'package:dino/components/player.dart';
+import 'package:dino/consts.dart';
 import 'package:flame/components.dart';
 import 'package:flame_tiled/flame_tiled.dart';
+import 'package:flutter/services.dart';
 
 class Level extends World {
+  RectangleComponent debugArea = RectangleComponent();
   final Player player;
   late TiledComponent level;
   final String levelName;
-  List<CollisionBlock> collisionBlocks = [];
+  Map<Rect, CollisionBlock> collisionBlocks = {};
 
   Level({required this.levelName, required this.player});
 
   @override
   FutureOr<void> onLoad() async {
-    level = await TiledComponent.load("$levelName.tmx", Vector2.all(16));
+    level = await TiledComponent.load(
+        "$levelName.tmx", Vector2.all(Consts.tileSize));
 
     add(level);
+    debugArea.debugMode = true;
+    debugArea.paint = debugPaint;
+    add(debugArea);
 
     final spawnPointsLayer = level.tileMap.getLayer<ObjectGroup>("spawnPoints");
 
@@ -26,6 +33,7 @@ class Level extends World {
         switch (spawnPoint.class_) {
           case 'player':
             player.position = Vector2(spawnPoint.x, spawnPoint.y);
+            player.level = this;
             add(player);
             break;
           default:
@@ -44,7 +52,7 @@ class Level extends World {
               size: Vector2(collision.width, collision.height),
               isPlatform: true,
             );
-            collisionBlocks.add(platform);
+            collisionBlocks[platform.toRect()] = platform;
             add(platform);
             break;
           default:
@@ -52,7 +60,7 @@ class Level extends World {
               position: Vector2(collision.x, collision.y),
               size: Vector2(collision.width, collision.height),
             );
-            collisionBlocks.add(block);
+            collisionBlocks[block.toRect()] = block;
             add(block);
             break;
         }

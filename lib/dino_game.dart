@@ -12,7 +12,7 @@ class DinoGame extends FlameGame
     with HasKeyboardHandlerComponents, DragCallbacks, HasCollisionDetection {
   late JoystickComponent joystick;
   late final CameraComponent cam;
-  Player player = Player(character: "Mask Dude");
+  Player player = Player(characterName: "Mask Dude");
   bool showJoystick = false; // Platform.isAndroid || Platform.isIOS;
   double fps = 0;
 
@@ -26,7 +26,7 @@ class DinoGame extends FlameGame
 
     final world = Level(
       player: player,
-      levelName: "level_02",
+      levelName: "level_03",
     );
     cam = CameraComponent.withFixedResolution(
       world: world,
@@ -37,7 +37,6 @@ class DinoGame extends FlameGame
     cam.viewfinder.anchor = Anchor.topLeft;
 
     addAll([cam, world]);
-
     return super.onLoad();
   }
 
@@ -104,17 +103,29 @@ class DinoGame extends FlameGame
   void _updateJoystick() {
     switch (joystick.direction) {
       case JoystickDirection.left:
+        player.isLeftKeyPressed = true;
+        break;
       case JoystickDirection.upLeft:
+        player.isLeftKeyPressed = true;
+        player.isUpOrSpacePressed = true;
+        break;
       case JoystickDirection.downLeft:
-        player.horizontalMovement = -1;
+        player.isLeftKeyPressed = true;
         break;
       case JoystickDirection.right:
+        player.isRightKeyPressed = true;
+        break;
       case JoystickDirection.upRight:
+        player.isRightKeyPressed = true;
+        player.isUpOrSpacePressed = true;
+        break;
       case JoystickDirection.downRight:
-        player.horizontalMovement = 1;
+        player.isRightKeyPressed = true;
         break;
       default:
-        player.horizontalMovement = 0;
+        player.isLeftKeyPressed = false;
+        player.isRightKeyPressed = false;
+        player.isUpOrSpacePressed = false;
         break;
     }
   }

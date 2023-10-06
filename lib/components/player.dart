@@ -1,94 +1,68 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:dino/components/collision_block.dart';
+import 'package:dino/components/level.dart';
 import 'package:dino/dino_game.dart';
+import 'package:dino/consts.dart';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flame/experimental.dart';
+import 'package:flame/extensions.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class Player extends SpriteAnimationGroupComponent
-    with HasGameRef<DinoGame>, KeyboardHandler, CollisionCallbacks {
-  late final RectangleHitbox hitbox;
+    with HasGameRef<DinoGame>, KeyboardHandler {
+  // late final RectangleHitbox hitbox;
   late final SpriteAnimation idleAnimation;
   late final SpriteAnimation runningAnimation;
   late final SpriteAnimation jumpingAnimation;
   late final SpriteAnimation fallingAnimation;
-  final double stepTime = 0.05;
-  String character;
-  static const double speeds = 2;
+  final double animationStepTime = 0.05;
+  String characterName;
+  static const double speeds = 1;
   double moveSpeed = 100 * speeds;
   final double _graviy = 9.8 * speeds;
   final double _jumpForce = 300 * speeds;
   final double _terminalVelocity = 900 * speeds;
 
-  double horizontalMovement = 0;
+  bool isLeftKeyPressed = false;
+  bool isRightKeyPressed = false;
+  bool isDownKeyPressed = false;
+  bool isUpOrSpacePressed = false;
   bool startJump = false;
   bool isJumping = false;
   Vector2 velocity = Vector2.zero();
   bool isFacingRight = true;
   bool isCollidingWithPlatform = false;
-  List<CollisionBlock> collisionBlocks = [];
-  Set<Side> collidedPlayerSides = {};
-  Map<int, Set<Side>> collidedObjects = {};
-  PlayerHitbox hitbox_2 =
-      PlayerHitbox(offsetX: 10, offsetY: 4, width: 14, height: 28);
+  Map<Rect, CollisionBlock> collisionBlocks = {};
+
+  Level? level;
 
   Player({
     position,
-    this.character = 'Ninja Frog',
+    this.characterName = 'Ninja Frog',
   }) : super(
           position: position,
         ) {
     debugMode = true;
   }
 
-  @override
-  void onCollisionStart(
-      Set<Vector2> intersectionPoints, PositionComponent other) {
-    print("delay: ${DateTime.now().difference(time)}");
-    if (other is CollisionBlock) {
-      var newSides = _collisionSides(other);
-      var currentSides = collidedObjects[other.hashCode];
-      if (currentSides != null && !currentSides.containsAll(newSides)) {
-        // colision sides beetwen object and player has changed
-        collidedPlayerSides.remove(currentSides);
-      }
-      collidedPlayerSides.addAll(newSides);
-      collidedObjects[other.hashCode] = newSides;
-      if (isCollidingWithPlatform && collidedPlayerSides.contains(Side.top)) {
-        collidedPlayerSides.remove(Side.top);
-      }
-    }
-    super.onCollisionStart(intersectionPoints, other);
-  }
-
-  @override
-  void onCollisionEnd(PositionComponent other) {
-    var sides = collidedObjects[other.hashCode];
-    if (sides != null) {
-      collidedPlayerSides.removeAll(sides);
-    }
-    collidedObjects.remove(other.hashCode);
-
-    super.onCollisionEnd(other);
-  }
-
   // other way https://docs.flame-engine.org/latest/flame/inputs/keyboard_input.html
   @override
   bool onKeyEvent(RawKeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    horizontalMovement = 0;
-    final isLeftKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyA)) ||
+    isLeftKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyA)) ||
         keysPressed.contains(LogicalKeyboardKey.arrowLeft);
 
-    final isRightKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyD)) ||
+    isRightKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyD)) ||
         keysPressed.contains(LogicalKeyboardKey.arrowRight);
 
-    final isUpOrSpace = keysPressed.contains((LogicalKeyboardKey.keyW)) ||
+    isUpOrSpacePressed = keysPressed.contains((LogicalKeyboardKey.keyW)) ||
         keysPressed.contains(LogicalKeyboardKey.arrowUp);
 
-    horizontalMovement += isLeftKeyPressed ? -1 : 0;
-    horizontalMovement += isRightKeyPressed ? 1 : 0;
-    startJump = isUpOrSpace;
+    isDownKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyS)) ||
+        keysPressed.contains(LogicalKeyboardKey.arrowDown);
 
     return false;
   }
@@ -96,11 +70,11 @@ class Player extends SpriteAnimationGroupComponent
   @override
   FutureOr<void> onLoad() {
     _loadAllAnimations();
-    hitbox = RectangleHitbox(
-      position: Vector2(hitbox_2.offsetX, hitbox_2.offsetY),
-      size: Vector2(hitbox_2.width, hitbox_2.height),
-    );
-    add(hitbox);
+    // hitbox = RectangleHitbox(
+    //   position: Vector2(10, 4),
+    //   size: Vector2(14, 28),
+    // );
+    // add(hitbox);
     return super.onLoad();
   }
 
@@ -111,42 +85,6 @@ class Player extends SpriteAnimationGroupComponent
     _updatePlayerMovement(dt);
     _updatePlayerState();
     super.update(dt);
-  }
-
-  Set<Side> _collisionSides(PositionComponent other) {
-    final playerRect = toRect();
-    final blockRect = other.toRect();
-    Set<Side> sides = {};
-    if (playerRect.overlaps(blockRect)) {
-      final playerCenter = playerRect.center;
-      final blockCenter = blockRect.center;
-
-      final deltaX = playerCenter.dx - blockCenter.dx;
-      final deltaY = playerCenter.dy - blockCenter.dy;
-
-      final playerHalfWidth = playerRect.width / 2;
-      final playerHalfHeight = playerRect.height / 2;
-      final blockHalfWidth = blockRect.width / 2;
-      final blockHalfHeight = blockRect.height / 2;
-
-      final overlapX = playerHalfWidth + blockHalfWidth - deltaX.abs();
-      final overlapY = playerHalfHeight + blockHalfHeight - deltaY.abs();
-      if (overlapX > overlapY) {
-        if (deltaY > 0) {
-          sides.add(Side.top);
-        } else {
-          sides.add(Side.bottom);
-        }
-      }
-      if (overlapX < overlapY) {
-        if (deltaX > 0) {
-          sides.add(Side.left);
-        } else {
-          sides.add(Side.right);
-        }
-      }
-    }
-    return sides;
   }
 
   void _loadAllAnimations() {
@@ -168,51 +106,64 @@ class Player extends SpriteAnimationGroupComponent
 
   SpriteAnimation _spriteAnimation(String state, int amount) {
     return SpriteAnimation.fromFrameData(
-      game.images.fromCache('Main Characters/$character/$state (32x32).png'),
+      game.images
+          .fromCache('Main Characters/$characterName/$state (32x32).png'),
       SpriteAnimationData.sequenced(
         amount: amount,
-        stepTime: stepTime,
+        stepTime: animationStepTime,
         textureSize: Vector2.all(32),
       ),
     );
   }
 
   void _updatePlayerMovement(double dt) {
-    final double horizontalV = horizontalMovement * moveSpeed;
-    double verticalV = 0;
+    velocity.x = isLeftKeyPressed ? -1 : (isRightKeyPressed ? 1 : 0);
+    velocity.y = isUpOrSpacePressed ? -1 : (isDownKeyPressed ? 1 : 0);
 
-    if (startJump && collidedPlayerSides.contains(Side.bottom)) {
-      startJump = false;
-      verticalV = -_jumpForce;
-      isJumping = true;
-    } else {
-      verticalV = velocity.y + _graviy;
-    }
-    if (isJumping && verticalV >= 0) {
-      isJumping = false;
+    if (velocity.length2 > 0) {
+      velocity = velocity.normalized() * moveSpeed;
     }
 
-    if (isJumping) {
-      velocity.y = verticalV;
-      position.y += velocity.y * dt;
-      print("jumping");
-    } else if (verticalV > 0 && !collidedPlayerSides.contains(Side.bottom)) {
-      // apply gravity
-      velocity.y = verticalV.clamp(0, _terminalVelocity);
-      position.y += velocity.y * dt;
-      print("falling");
-    } else {
-      print("stay on ground");
-      velocity.y = 0;
+    // Extrac region of world cells that could have collision this frame
+    Vector2 potentialPositon = position + (velocity * dt);
+    Vector2 detectionSize = Vector2.all(Consts.tileSize) * 2;
+    Vector2 areaTL = potentialPositon - detectionSize;
+    Vector2 areaBR = potentialPositon + size + detectionSize;
+    if (scale.x < 0) {
+      areaTL.x -= width;
+      areaBR.x -= width;
+    }
+    if (kDebugMode) {
+      level?.debugArea.topLeftPosition = areaTL;
+      level?.debugArea.size = Vector2(areaBR.x - areaTL.x, areaBR.y - areaTL.y);
     }
 
-    if (horizontalV > 0 && !collidedPlayerSides.contains(Side.right) ||
-        horizontalV < 0 && !collidedPlayerSides.contains(Side.left)) {
-      velocity.x = horizontalV;
-      position.x += velocity.x * dt;
-    } else {
-      velocity.x = 0;
+    // iterate trough each cell in detection area
+    Vector2 cell = Vector2.zero();
+    for (cell.y = areaTL.y; cell.y <= areaBR.y; cell.y++) {
+      for (cell.x = areaTL.x; cell.x <= areaBR.x; cell.x++) {
+        print("check block $cell");
+        var block = collisionBlocks[cell];
+        if (block != null) {
+          print("block $block");
+          Vector2 nearestPoint = Vector2.zero();
+          nearestPoint.x = math.max(
+              cell.x, math.min(potentialPositon.x, cell.x + block.width));
+          nearestPoint.y = math.max(
+              cell.y, math.min(potentialPositon.y, cell.y + block.height));
+
+          Vector2 rayToNearest = nearestPoint - potentialPositon;
+          var overlap = width - rayToNearest.length;
+          // print("$nearestPoint, $rayToNearest, $overlap");
+          if (overlap > 0) {
+            potentialPositon =
+                potentialPositon - rayToNearest.normalized() * overlap;
+          }
+        }
+      }
     }
+
+    position = potentialPositon;
   }
 
   void _updatePlayerState() {
@@ -246,17 +197,3 @@ enum PlayerState {
 }
 
 enum Side { left, top, right, bottom }
-
-class PlayerHitbox {
-  final double offsetX;
-  final double offsetY;
-  final double width;
-  final double height;
-
-  PlayerHitbox({
-    required this.offsetX,
-    required this.offsetY,
-    required this.width,
-    required this.height,
-  });
-}
