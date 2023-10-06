@@ -4,27 +4,42 @@ import 'package:dino/components/collision_block.dart';
 import 'package:dino/components/player.dart';
 import 'package:dino/consts.dart';
 import 'package:flame/components.dart';
+import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flame_tiled/flame_tiled.dart';
 import 'package:flutter/services.dart';
 
-class Level extends World {
+class Level extends Forge2DWorld {
   RectangleComponent debugArea = RectangleComponent();
-  final Player player;
   late TiledComponent level;
   final String levelName;
-  Map<Rect, CollisionBlock> collisionBlocks = {};
 
-  Level({required this.levelName, required this.player});
+  Level({required this.levelName});
 
   @override
   FutureOr<void> onLoad() async {
     level = await TiledComponent.load(
         "$levelName.tmx", Vector2.all(Consts.tileSize));
 
-    add(level);
     debugArea.debugMode = true;
     debugArea.paint = debugPaint;
     add(debugArea);
+
+    final tilesLayer = level.tileMap.getLayer<TileLayer>("background");
+    if (tilesLayer != null) {
+      for (final tile in tilesLayer.objects) {
+        switch (tile.class_) {
+          case 'player':
+            var player = Player(
+              characterName: "Mask Dude",
+              initalPosition: Vector2(spawnPoint.x, spawnPoint.y),
+            );
+            player.level = this;
+            add(player);
+            break;
+          default:
+        }
+      }
+    }
 
     final spawnPointsLayer = level.tileMap.getLayer<ObjectGroup>("spawnPoints");
 
@@ -32,7 +47,10 @@ class Level extends World {
       for (final spawnPoint in spawnPointsLayer.objects) {
         switch (spawnPoint.class_) {
           case 'player':
-            player.position = Vector2(spawnPoint.x, spawnPoint.y);
+            var player = Player(
+              characterName: "Mask Dude",
+              initalPosition: Vector2(spawnPoint.x, spawnPoint.y),
+            );
             player.level = this;
             add(player);
             break;
@@ -52,7 +70,6 @@ class Level extends World {
               size: Vector2(collision.width, collision.height),
               isPlatform: true,
             );
-            collisionBlocks[platform.toRect()] = platform;
             add(platform);
             break;
           default:
@@ -60,12 +77,10 @@ class Level extends World {
               position: Vector2(collision.x, collision.y),
               size: Vector2(collision.width, collision.height),
             );
-            collisionBlocks[block.toRect()] = block;
             add(block);
             break;
         }
       }
-      player.collisionBlocks = collisionBlocks;
     }
 
     return super.onLoad();
