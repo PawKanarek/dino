@@ -3,7 +3,7 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "level_02.tmx",
+    "activeFile": "level_03.tmx",
     "expandedProjectPaths": [
         "."
     ],
@@ -16,11 +16,11 @@
             "expandedObjectLayers": [
                 2
             ],
-            "scale": 1.13,
+            "scale": 1.12,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 338.9380530973451,
-                "y": 274.77876106194685
+                "x": 339.2857142857143,
+                "y": 275.44642857142856
             }
         },
         "level_02.tmx": {
@@ -43,8 +43,8 @@
             "scale": 1.260234375,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 318.9882834294216,
-                "y": 185.28299547455214
+                "x": 324.93955737400034,
+                "y": 76.17630649060811
             }
         }
     },
@@ -57,13 +57,15 @@
     "openFiles": [
         "dino.tsx",
         "level_01.tmx",
-        "level_02.tmx"
+        "level_02.tmx",
+        "level_03.tmx"
     ],
     "project": "dino.tiled-project",
     "recentFiles": [
         "dino.tsx",
         "level_01.tmx",
-        "level_02.tmx"
+        "level_02.tmx",
+        "level_03.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.tileSize": {
