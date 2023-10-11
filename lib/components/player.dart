@@ -1,12 +1,10 @@
 import 'dart:async';
 
 import 'package:dino/components/collision_block.dart';
-import 'package:dino/components/level.dart';
 import 'package:dino/dino_game.dart';
 import 'package:flame/components.dart';
 import 'package:flame/extensions.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
-import 'package:flutter/material.dart';
 
 class Player extends BodyComponent<DinoGame> {
   late final SpriteAnimationGroupComponent animations;
@@ -26,11 +24,8 @@ class Player extends BodyComponent<DinoGame> {
   Player({
     this.characterName = 'Ninja Frog',
     required this.initalPosition,
-    required SpriteAnimationGroupComponent<PlayerState> this.animations,
   }) {
     // renderBody = false;
-    // add(animations);
-    // _loadAllAnimations();
   }
   @override
   Body createBody() {
@@ -47,7 +42,7 @@ class Player extends BodyComponent<DinoGame> {
   @override
   Future<void> onLoad() async {
     super.onLoad();
-    // _loadAllAnimations();
+    _loadAllAnimations();
   }
 
   DateTime time = DateTime.now();
@@ -59,28 +54,28 @@ class Player extends BodyComponent<DinoGame> {
     super.update(dt);
   }
 
-  // void _loadAllAnimations() {
-  //   animations = SpriteAnimationGroupComponent(animations: {
-  //     PlayerState.idle: _spriteAnimation("Idle", 11),
-  //     PlayerState.running: _spriteAnimation('Run', 12),
-  //     PlayerState.falling: _spriteAnimation("Fall", 1),
-  //     PlayerState.jumping: _spriteAnimation("Jump", 1),
-  //   });
-  //   animations.current = PlayerState.idle;
-  //   add(animations);
-  // }
+  void _loadAllAnimations() {
+    animations = SpriteAnimationGroupComponent(animations: {
+      PlayerState.idle: _spriteAnimation("Idle", 11),
+      PlayerState.running: _spriteAnimation('Run', 12),
+      PlayerState.falling: _spriteAnimation("Fall", 1),
+      PlayerState.jumping: _spriteAnimation("Jump", 1),
+    });
+    animations.current = PlayerState.idle;
+    add(animations);
+  }
 
-  // SpriteAnimation _spriteAnimation(String state, int amount) {
-  //   return SpriteAnimation.fromFrameData(
-  //     game.images
-  //         .fromCache('Main Characters/$characterName/$state (32x32).png'),
-  //     SpriteAnimationData.sequenced(
-  //       amount: amount,
-  //       stepTime: animationStepTime,
-  //       textureSize: Vector2.all(32),
-  //     ),
-  //   );
-  // }
+  SpriteAnimation _spriteAnimation(String state, int amount) {
+    return SpriteAnimation.fromFrameData(
+      game.images
+          .fromCache('Main Characters/$characterName/$state (32x32).png'),
+      SpriteAnimationData.sequenced(
+        amount: amount,
+        stepTime: animationStepTime,
+        textureSize: Vector2.all(32),
+      ),
+    );
+  }
 
   void _updatePlayerMovement(double dt) {
     velocity.x = game.isLeftKeyPressed ? -1 : (game.isRightKeyPressed ? 1 : 0);
