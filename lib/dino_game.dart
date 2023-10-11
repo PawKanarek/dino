@@ -26,7 +26,7 @@ class DinoGame extends FlameGame
 
     final world = Level(
       player: player,
-      levelName: "level_03",
+      levelName: "level_02",
     );
     cam = CameraComponent.withFixedResolution(
       world: world,

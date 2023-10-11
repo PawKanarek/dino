@@ -15,7 +15,7 @@ class CollisionBlock extends PositionComponent with CollisionCallbacks {
           position: position,
           size: size,
         ) {
-    debugMode = true;
+    // debugMode = true;
   }
 
   @override

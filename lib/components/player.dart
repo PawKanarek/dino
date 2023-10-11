@@ -1,27 +1,28 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:dino/components/Fruit.dart';
 import 'package:dino/components/collision_block.dart';
 import 'package:dino/components/level.dart';
+import 'package:dino/components/saw.dart';
 import 'package:dino/dino_game.dart';
 import 'package:dino/consts.dart';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
-import 'package:flame/experimental.dart';
 import 'package:flame/extensions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class Player extends SpriteAnimationGroupComponent
-    with HasGameRef<DinoGame>, KeyboardHandler {
-  // late final RectangleHitbox hitbox;
+    with HasGameRef<DinoGame>, KeyboardHandler, CollisionCallbacks {
+  late final RectangleHitbox hitbox;
   late final SpriteAnimation idleAnimation;
   late final SpriteAnimation runningAnimation;
   late final SpriteAnimation jumpingAnimation;
   late final SpriteAnimation fallingAnimation;
   final double animationStepTime = 0.05;
   String characterName;
-  static const double speeds = 1;
+  static const double speeds = 2;
   double moveSpeed = 100 * speeds;
   final double _graviy = 9.8 * speeds;
   final double _jumpForce = 300 * speeds;
@@ -39,6 +40,8 @@ class Player extends SpriteAnimationGroupComponent
   Map<Rect, CollisionBlock> collisionBlocks = {};
 
   Level? level;
+
+  late Vector2 startingPosition;
 
   Player({
     position,
@@ -70,11 +73,12 @@ class Player extends SpriteAnimationGroupComponent
   @override
   FutureOr<void> onLoad() {
     _loadAllAnimations();
-    // hitbox = RectangleHitbox(
-    //   position: Vector2(10, 4),
-    //   size: Vector2(14, 28),
-    // );
-    // add(hitbox);
+    startingPosition = Vector2(position.x, position.y);
+    hitbox = RectangleHitbox(
+      position: Vector2(10, 4),
+      size: Vector2(14, 28),
+    );
+    add(hitbox);
     return super.onLoad();
   }
 
@@ -126,44 +130,51 @@ class Player extends SpriteAnimationGroupComponent
 
     // Extrac region of world cells that could have collision this frame
     Vector2 potentialPositon = position + (velocity * dt);
-    Vector2 detectionSize = Vector2.all(Consts.tileSize) * 2;
-    Vector2 areaTL = potentialPositon - detectionSize;
-    Vector2 areaBR = potentialPositon + size + detectionSize;
-    if (scale.x < 0) {
-      areaTL.x -= width;
-      areaBR.x -= width;
-    }
-    if (kDebugMode) {
-      level?.debugArea.topLeftPosition = areaTL;
-      level?.debugArea.size = Vector2(areaBR.x - areaTL.x, areaBR.y - areaTL.y);
-    }
+    // Vector2 detectionSize = Vector2.all(Consts.tileSize) * 2;
+    // Vector2 areaTL = potentialPositon - detectionSize;
+    // Vector2 areaBR = potentialPositon + size + detectionSize;
+    // if (scale.x < 0) {
+    //   areaTL.x -= width;
+    //   areaBR.x -= width;
+    // }
+    // if (kDebugMode) {
+    //   level?.debugArea.topLeftPosition = areaTL;
+    //   level?.debugArea.size = Vector2(areaBR.x - areaTL.x, areaBR.y - areaTL.y);
+    // }
 
-    // iterate trough each cell in detection area
-    Vector2 cell = Vector2.zero();
-    for (cell.y = areaTL.y; cell.y <= areaBR.y; cell.y++) {
-      for (cell.x = areaTL.x; cell.x <= areaBR.x; cell.x++) {
-        print("check block $cell");
-        var block = collisionBlocks[cell];
-        if (block != null) {
-          print("block $block");
-          Vector2 nearestPoint = Vector2.zero();
-          nearestPoint.x = math.max(
-              cell.x, math.min(potentialPositon.x, cell.x + block.width));
-          nearestPoint.y = math.max(
-              cell.y, math.min(potentialPositon.y, cell.y + block.height));
+    // // iterate trough each cell in detection area
+    // Vector2 cell = Vector2.zero();
+    // for (cell.y = areaTL.y; cell.y <= areaBR.y; cell.y++) {
+    //   for (cell.x = areaTL.x; cell.x <= areaBR.x; cell.x++) {
+    //     var block = collisionBlocks[cell];
+    //     if (block != null) {
+    //       Vector2 nearestPoint = Vector2.zero();
+    //       nearestPoint.x = math.max(
+    //           cell.x, math.min(potentialPositon.x, cell.x + block.width));
+    //       nearestPoint.y = math.max(
+    //           cell.y, math.min(potentialPositon.y, cell.y + block.height));
 
-          Vector2 rayToNearest = nearestPoint - potentialPositon;
-          var overlap = width - rayToNearest.length;
-          // print("$nearestPoint, $rayToNearest, $overlap");
-          if (overlap > 0) {
-            potentialPositon =
-                potentialPositon - rayToNearest.normalized() * overlap;
-          }
-        }
-      }
-    }
+    //       Vector2 rayToNearest = nearestPoint - potentialPositon;
+    //       var overlap = width - rayToNearest.length;
+    //       // print("$nearestPoint, $rayToNearest, $overlap");
+    //       if (overlap > 0) {
+    //         potentialPositon =
+    //             potentialPositon - rayToNearest.normalized() * overlap;
+    //       }
+    //     }
+    //   }
+    // }
 
     position = potentialPositon;
+  }
+
+  @override
+  void onCollisionStart(
+      Set<Vector2> intersectionPoints, PositionComponent other) {
+    if (other is Fruit) other.onCollidedWithPlayer();
+    if (other is Saw) _respawn();
+
+    super.onCollisionStart(intersectionPoints, other);
   }
 
   void _updatePlayerState() {
@@ -186,6 +197,10 @@ class Player extends SpriteAnimationGroupComponent
     }
 
     current = playerState;
+  }
+
+  void _respawn() {
+    position = startingPosition;
   }
 }
 

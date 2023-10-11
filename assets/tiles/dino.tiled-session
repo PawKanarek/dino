@@ -19,8 +19,8 @@
             "scale": 1.13,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 320.7964601769911,
-                "y": 184.070796460177
+                "x": 276.9911504424779,
+                "y": 184.51327433628313
             }
         },
         "level_02.tmx": {
@@ -29,10 +29,10 @@
                 3
             ],
             "scale": 1.260234375,
-            "selectedLayer": 1,
+            "selectedLayer": 0,
             "viewCenter": {
-                "x": 314.2272642737586,
-                "y": 188.45700824499414
+                "x": 345.9673919781787,
+                "y": 315.4175190626744
             }
         }
     },
@@ -48,6 +48,7 @@
         "level_02.tmx"
     ],
     "project": "dino.tiled-project",
+    "property.type": "float",
     "recentFiles": [
         "dino.tsx",
         "level_01.tmx",
