@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:dino/components/ball.dart';
 import 'package:dino/components/collision_block.dart';
+import 'package:dino/components/level.dart';
 import 'package:dino/components/player.dart';
 import 'package:dino/consts.dart';
 import 'package:flame/components.dart';
@@ -9,6 +9,7 @@ import 'package:flame/events.dart';
 import 'package:flame/extensions.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flame_tiled/flame_tiled.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -22,46 +23,23 @@ class DinoGame extends Forge2DGame
   bool isDownKeyPressed = false;
   bool isUpOrSpacePressed = false;
 
-  RectangleComponent debugRect = RectangleComponent();
+  RectangleComponent debugArea = RectangleComponent();
   late TiledComponent level;
   final String levelName = "level_01";
 
+  SpriteAnimation _spriteAnimation(String state, int amount) {
+    return SpriteAnimation.fromFrameData(
+      images.fromCache('Main Characters/Ninja Frog/$state (32x32).png'),
+      SpriteAnimationData.sequenced(
+        amount: amount,
+        stepTime: 0.05,
+        textureSize: Vector2.all(32),
+      ),
+    );
+  }
+
   @override
   Color backgroundColor() => const Color(0xFF211F30);
-
-  List<Component> createBoundaries() {
-    final visibleRect = camera.visibleWorldRect;
-    final topLeft = visibleRect.topLeft.toVector2();
-    final topRight = visibleRect.topRight.toVector2();
-    final bottomRight = visibleRect.bottomRight.toVector2();
-    final bottomLeft = visibleRect.bottomLeft.toVector2();
-
-    return [
-      Wall(topLeft, topRight),
-      Wall(topRight, bottomRight),
-      Wall(bottomLeft, bottomRight),
-      Wall(topLeft, bottomLeft),
-    ];
-  }
-
-  @override
-  KeyEventResult onKeyEvent(
-      RawKeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    // other way https://docs.flame-engine.org/latest/flame/inputs/keyboard_input.html
-    isLeftKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyA)) ||
-        keysPressed.contains(LogicalKeyboardKey.arrowLeft);
-
-    isRightKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyD)) ||
-        keysPressed.contains(LogicalKeyboardKey.arrowRight);
-
-    isUpOrSpacePressed = keysPressed.contains((LogicalKeyboardKey.keyW)) ||
-        keysPressed.contains(LogicalKeyboardKey.arrowUp);
-
-    isDownKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyS)) ||
-        keysPressed.contains(LogicalKeyboardKey.arrowDown);
-
-    return KeyEventResult.handled;
-  }
 
   @override
   FutureOr<void> onLoad() async {
@@ -69,7 +47,7 @@ class DinoGame extends Forge2DGame
     await images.loadAllImages();
     camera.viewport.add(FpsTextComponent());
     camera.viewport.add(_joystick());
-    camera.viewfinder.zoom = 5;
+    camera.viewfinder.zoom = 1;
 
     level = await TiledComponent.load(
         "$levelName.tmx", Vector2.all(Consts.tileSize));
@@ -77,9 +55,15 @@ class DinoGame extends Forge2DGame
     world.add(Ball(Vector2.zero()));
     world.addAll(createBoundaries());
 
-    debugRect.debugMode = true;
-    debugRect.paint = debugPaint;
-    add(debugRect);
+    debugArea.debugMode = true;
+    debugArea.paint = debugPaint;
+    add(debugArea);
+    var animations = SpriteAnimationGroupComponent(animations: {
+      PlayerState.idle: _spriteAnimation("Idle", 11),
+      PlayerState.running: _spriteAnimation('Run', 12),
+      PlayerState.falling: _spriteAnimation("Fall", 1),
+      PlayerState.jumping: _spriteAnimation("Jump", 1),
+    });
 
     final tilesLayer = level.tileMap.getLayer<TileLayer>("background");
     if (tilesLayer?.tileData != null) {
@@ -107,9 +91,10 @@ class DinoGame extends Forge2DGame
       for (final spawnPoint in spawnPointsLayer.objects) {
         switch (spawnPoint.class_) {
           case 'player':
-            world.add(Player(
+            add(Player(
               characterName: "Mask Dude",
-              initalPosition: Vector2(0, 0),
+              initalPosition: Vector2(120, 1),
+              animations: animations,
             ));
             break;
           default:
@@ -117,31 +102,46 @@ class DinoGame extends Forge2DGame
       }
     }
 
-    // final collistionsLayer = level.tileMap.getLayer<ObjectGroup>('collisions');
+    final collistionsLayer = level.tileMap.getLayer<ObjectGroup>('collisions');
 
-    // if (collistionsLayer != null) {
-    //   for (final collision in collistionsLayer.objects) {
-    //     switch (collision.class_) {
-    //       case 'platform':
-    //         final platform = CollisionBlock(
-    //           position: Vector2(collision.x, collision.y),
-    //           size: Vector2(collision.width, collision.height),
-    //           isPlatform: true,
-    //         );
-    //         add(platform);
-    //         break;
-    //       default:
-    //         final block = CollisionBlock(
-    //           position: Vector2(collision.x, collision.y),
-    //           size: Vector2(collision.width, collision.height),
-    //         );
-    //         add(block);
-    //         break;
-    //     }
-    //   }
-    // }
+    if (collistionsLayer != null) {
+      for (final collision in collistionsLayer.objects) {
+        switch (collision.class_) {
+          case 'platform':
+            final platform = CollisionBlock(
+              position: Vector2(collision.x, collision.y),
+              size: Vector2(collision.width, collision.height),
+              isPlatform: true,
+            );
+            add(platform);
+            break;
+          default:
+            final block = CollisionBlock(
+              position: Vector2(collision.x, collision.y),
+              size: Vector2(collision.width, collision.height),
+            );
+            add(block);
+            break;
+        }
+      }
+    }
 
     return super.onLoad();
+  }
+
+  List<Component> createBoundaries() {
+    final visibleRect = camera.visibleWorldRect;
+    final topLeft = visibleRect.topLeft.toVector2();
+    final topRight = visibleRect.topRight.toVector2();
+    final bottomRight = visibleRect.bottomRight.toVector2();
+    final bottomLeft = visibleRect.bottomLeft.toVector2();
+
+    return [
+      Wall(topLeft, topRight),
+      Wall(topRight, bottomRight),
+      Wall(bottomLeft, bottomRight),
+      Wall(topLeft, bottomLeft),
+    ];
   }
 
   @override
@@ -151,6 +151,25 @@ class DinoGame extends Forge2DGame
     }
 
     super.update(dt);
+  }
+
+  @override
+  KeyEventResult onKeyEvent(
+      RawKeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    // other way https://docs.flame-engine.org/latest/flame/inputs/keyboard_input.html
+    isLeftKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyA)) ||
+        keysPressed.contains(LogicalKeyboardKey.arrowLeft);
+
+    isRightKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyD)) ||
+        keysPressed.contains(LogicalKeyboardKey.arrowRight);
+
+    isUpOrSpacePressed = keysPressed.contains((LogicalKeyboardKey.keyW)) ||
+        keysPressed.contains(LogicalKeyboardKey.arrowUp);
+
+    isDownKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyS)) ||
+        keysPressed.contains(LogicalKeyboardKey.arrowDown);
+
+    return KeyEventResult.handled;
   }
 
   JoystickComponent _joystick() {
@@ -164,17 +183,6 @@ class DinoGame extends Forge2DGame
       margin: const EdgeInsets.only(left: 32, bottom: 32),
     );
     return joystick;
-  }
-
-  SpriteAnimation _spriteAnimation(String state, int amount) {
-    return SpriteAnimation.fromFrameData(
-      images.fromCache('Main Characters/Ninja Frog/$state (32x32).png'),
-      SpriteAnimationData.sequenced(
-        amount: amount,
-        stepTime: 0.05,
-        textureSize: Vector2.all(32),
-      ),
-    );
   }
 
   void _updateJoystick() {
@@ -205,6 +213,34 @@ class DinoGame extends Forge2DGame
         isUpOrSpacePressed = false;
         break;
     }
+  }
+}
+
+class Ball extends BodyComponent with TapCallbacks {
+  Vector2? initialPosition;
+  Ball(this.initialPosition);
+
+  @override
+  Body createBody() {
+    var fixture = FixtureDef(
+      CircleShape()..radius = 5,
+      restitution: 0.8,
+      density: 1.0,
+      friction: 0.4,
+    );
+
+    var bodyDef = BodyDef(
+      angularDamping: 0.8,
+      position: initialPosition ?? Vector2.zero(),
+      type: BodyType.dynamic,
+    );
+
+    return game.world.createBody(bodyDef)..createFixture(fixture);
+  }
+
+  @override
+  void onTapDown(event) {
+    body.applyLinearImpulse(Vector2.random() * 5000);
   }
 }
 
