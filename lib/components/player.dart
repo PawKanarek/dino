@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:dino/components/collision_block.dart';
 import 'package:dino/components/level.dart';
+import 'package:dino/consts.dart';
 import 'package:dino/dino_game.dart';
 import 'package:flame/components.dart';
 import 'package:flame/extensions.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 class Player extends BodyComponent<DinoGame> {
   late final SpriteAnimationGroupComponent animations;
@@ -16,6 +19,10 @@ class Player extends BodyComponent<DinoGame> {
   final Vector2 initalPosition;
   static const double speeds = 1;
   double moveSpeed = 100 * speeds;
+  final double _graviy = 9.8 * speeds;
+  final double _jumpForce = 300 * speeds;
+  final double _terminalVelocity = 900 * speeds;
+
   bool startJump = false;
   bool isJumping = false;
   Vector2 velocity = Vector2.zero();
@@ -23,31 +30,32 @@ class Player extends BodyComponent<DinoGame> {
   bool isCollidingWithPlatform = false;
   Map<Rect, CollisionBlock> collisionBlocks = {};
 
+  Level? level;
+
   Player({
     this.characterName = 'Ninja Frog',
     required this.initalPosition,
-    required SpriteAnimationGroupComponent<PlayerState> this.animations,
   }) {
-    // renderBody = false;
-    // add(animations);
-    // _loadAllAnimations();
+    debugMode = true;
   }
+
   @override
   Body createBody() {
-    final shape = PolygonShape()..setAsBox(32, 32, Vector2.zero(), 0);
+    final shape = PolygonShape()..setAsBox(7, 14, Vector2.zero(), 0);
     final fixtureDef = FixtureDef(shape, friction: 0.3, density: 10);
     final bodyDef = BodyDef(
       userData: this, // To be able to determine object in collision
       position: initalPosition,
       type: BodyType.dynamic,
     );
-    return game.world.createBody(bodyDef)..createFixture(fixtureDef);
+    return world.createBody(bodyDef)..createFixture(fixtureDef);
   }
 
   @override
-  Future<void> onLoad() async {
-    super.onLoad();
-    // _loadAllAnimations();
+  Future<void> onLoad() {
+    _loadAllAnimations();
+
+    return super.onLoad();
   }
 
   DateTime time = DateTime.now();
@@ -59,28 +67,28 @@ class Player extends BodyComponent<DinoGame> {
     super.update(dt);
   }
 
-  // void _loadAllAnimations() {
-  //   animations = SpriteAnimationGroupComponent(animations: {
-  //     PlayerState.idle: _spriteAnimation("Idle", 11),
-  //     PlayerState.running: _spriteAnimation('Run', 12),
-  //     PlayerState.falling: _spriteAnimation("Fall", 1),
-  //     PlayerState.jumping: _spriteAnimation("Jump", 1),
-  //   });
-  //   animations.current = PlayerState.idle;
-  //   add(animations);
-  // }
+  void _loadAllAnimations() {
+    animations = SpriteAnimationGroupComponent(animations: {
+      PlayerState.idle: _spriteAnimation("Idle", 11),
+      PlayerState.running: _spriteAnimation('Run', 12),
+      PlayerState.falling: _spriteAnimation("Fall", 1),
+      PlayerState.jumping: _spriteAnimation("Jump", 1),
+    });
+    animations.current = PlayerState.idle;
+    add(animations);
+  }
 
-  // SpriteAnimation _spriteAnimation(String state, int amount) {
-  //   return SpriteAnimation.fromFrameData(
-  //     game.images
-  //         .fromCache('Main Characters/$characterName/$state (32x32).png'),
-  //     SpriteAnimationData.sequenced(
-  //       amount: amount,
-  //       stepTime: animationStepTime,
-  //       textureSize: Vector2.all(32),
-  //     ),
-  //   );
-  // }
+  SpriteAnimation _spriteAnimation(String state, int amount) {
+    return SpriteAnimation.fromFrameData(
+      game.images
+          .fromCache('Main Characters/$characterName/$state (32x32).png'),
+      SpriteAnimationData.sequenced(
+        amount: amount,
+        stepTime: animationStepTime,
+        textureSize: Vector2.all(32),
+      ),
+    );
+  }
 
   void _updatePlayerMovement(double dt) {
     velocity.x = game.isLeftKeyPressed ? -1 : (game.isRightKeyPressed ? 1 : 0);
@@ -90,7 +98,7 @@ class Player extends BodyComponent<DinoGame> {
       velocity = velocity.normalized() * moveSpeed;
     }
 
-    // Vector2 potentialPositon = position + (velocity * dt);
+    Vector2 potentialPositon = position + (velocity * dt);
     // position = potentialPositon;
   }
 
@@ -124,9 +132,4 @@ enum PlayerState {
   falling,
 }
 
-enum Side {
-  left,
-  top,
-  right,
-  bottom,
-}
+enum Side { left, top, right, bottom }
