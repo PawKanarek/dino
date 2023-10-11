@@ -3,26 +3,34 @@ import 'dart:math' as math;
 
 import 'package:dino/components/collision_block.dart';
 import 'package:dino/components/level.dart';
-import 'package:dino/consts.dart';
 import 'package:dino/dino_game.dart';
+import 'package:dino/consts.dart';
+import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flame/experimental.dart';
 import 'package:flame/extensions.dart';
-import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-class Player extends BodyComponent<DinoGame> {
-  late final SpriteAnimationGroupComponent animations;
+class Player extends SpriteAnimationGroupComponent
+    with HasGameRef<DinoGame>, KeyboardHandler {
   // late final RectangleHitbox hitbox;
+  late final SpriteAnimation idleAnimation;
+  late final SpriteAnimation runningAnimation;
+  late final SpriteAnimation jumpingAnimation;
+  late final SpriteAnimation fallingAnimation;
   final double animationStepTime = 0.05;
   String characterName;
-  final Vector2 initalPosition;
   static const double speeds = 1;
   double moveSpeed = 100 * speeds;
   final double _graviy = 9.8 * speeds;
   final double _jumpForce = 300 * speeds;
   final double _terminalVelocity = 900 * speeds;
 
+  bool isLeftKeyPressed = false;
+  bool isRightKeyPressed = false;
+  bool isDownKeyPressed = false;
+  bool isUpOrSpacePressed = false;
   bool startJump = false;
   bool isJumping = false;
   Vector2 velocity = Vector2.zero();
@@ -33,28 +41,40 @@ class Player extends BodyComponent<DinoGame> {
   Level? level;
 
   Player({
+    position,
     this.characterName = 'Ninja Frog',
-    required this.initalPosition,
-  }) {
+  }) : super(
+          position: position,
+        ) {
     debugMode = true;
   }
 
+  // other way https://docs.flame-engine.org/latest/flame/inputs/keyboard_input.html
   @override
-  Body createBody() {
-    final shape = PolygonShape()..setAsBox(7, 14, Vector2.zero(), 0);
-    final fixtureDef = FixtureDef(shape, friction: 0.3, density: 10);
-    final bodyDef = BodyDef(
-      userData: this, // To be able to determine object in collision
-      position: initalPosition,
-      type: BodyType.dynamic,
-    );
-    return world.createBody(bodyDef)..createFixture(fixtureDef);
+  bool onKeyEvent(RawKeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    isLeftKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyA)) ||
+        keysPressed.contains(LogicalKeyboardKey.arrowLeft);
+
+    isRightKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyD)) ||
+        keysPressed.contains(LogicalKeyboardKey.arrowRight);
+
+    isUpOrSpacePressed = keysPressed.contains((LogicalKeyboardKey.keyW)) ||
+        keysPressed.contains(LogicalKeyboardKey.arrowUp);
+
+    isDownKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyS)) ||
+        keysPressed.contains(LogicalKeyboardKey.arrowDown);
+
+    return false;
   }
 
   @override
-  Future<void> onLoad() {
+  FutureOr<void> onLoad() {
     _loadAllAnimations();
-
+    // hitbox = RectangleHitbox(
+    //   position: Vector2(10, 4),
+    //   size: Vector2(14, 28),
+    // );
+    // add(hitbox);
     return super.onLoad();
   }
 
@@ -68,14 +88,20 @@ class Player extends BodyComponent<DinoGame> {
   }
 
   void _loadAllAnimations() {
-    animations = SpriteAnimationGroupComponent(animations: {
-      PlayerState.idle: _spriteAnimation("Idle", 11),
-      PlayerState.running: _spriteAnimation('Run', 12),
-      PlayerState.falling: _spriteAnimation("Fall", 1),
-      PlayerState.jumping: _spriteAnimation("Jump", 1),
-    });
-    animations.current = PlayerState.idle;
-    add(animations);
+    idleAnimation = _spriteAnimation("Idle", 11);
+    runningAnimation = _spriteAnimation('Run', 12);
+    fallingAnimation = _spriteAnimation("Fall", 1);
+    jumpingAnimation = _spriteAnimation("Jump", 1);
+
+    // sets the List
+    animations = {
+      PlayerState.idle: idleAnimation,
+      PlayerState.running: runningAnimation,
+      PlayerState.falling: fallingAnimation,
+      PlayerState.jumping: jumpingAnimation,
+    };
+
+    current = PlayerState.idle;
   }
 
   SpriteAnimation _spriteAnimation(String state, int amount) {
@@ -91,24 +117,62 @@ class Player extends BodyComponent<DinoGame> {
   }
 
   void _updatePlayerMovement(double dt) {
-    velocity.x = game.isLeftKeyPressed ? -1 : (game.isRightKeyPressed ? 1 : 0);
-    velocity.y = game.isUpOrSpacePressed ? -1 : (game.isDownKeyPressed ? 1 : 0);
+    velocity.x = isLeftKeyPressed ? -1 : (isRightKeyPressed ? 1 : 0);
+    velocity.y = isUpOrSpacePressed ? -1 : (isDownKeyPressed ? 1 : 0);
 
     if (velocity.length2 > 0) {
       velocity = velocity.normalized() * moveSpeed;
     }
 
+    // Extrac region of world cells that could have collision this frame
     Vector2 potentialPositon = position + (velocity * dt);
-    // position = potentialPositon;
+    Vector2 detectionSize = Vector2.all(Consts.tileSize) * 2;
+    Vector2 areaTL = potentialPositon - detectionSize;
+    Vector2 areaBR = potentialPositon + size + detectionSize;
+    if (scale.x < 0) {
+      areaTL.x -= width;
+      areaBR.x -= width;
+    }
+    if (kDebugMode) {
+      level?.debugArea.topLeftPosition = areaTL;
+      level?.debugArea.size = Vector2(areaBR.x - areaTL.x, areaBR.y - areaTL.y);
+    }
+
+    // iterate trough each cell in detection area
+    Vector2 cell = Vector2.zero();
+    for (cell.y = areaTL.y; cell.y <= areaBR.y; cell.y++) {
+      for (cell.x = areaTL.x; cell.x <= areaBR.x; cell.x++) {
+        print("check block $cell");
+        var block = collisionBlocks[cell];
+        if (block != null) {
+          print("block $block");
+          Vector2 nearestPoint = Vector2.zero();
+          nearestPoint.x = math.max(
+              cell.x, math.min(potentialPositon.x, cell.x + block.width));
+          nearestPoint.y = math.max(
+              cell.y, math.min(potentialPositon.y, cell.y + block.height));
+
+          Vector2 rayToNearest = nearestPoint - potentialPositon;
+          var overlap = width - rayToNearest.length;
+          // print("$nearestPoint, $rayToNearest, $overlap");
+          if (overlap > 0) {
+            potentialPositon =
+                potentialPositon - rayToNearest.normalized() * overlap;
+          }
+        }
+      }
+    }
+
+    position = potentialPositon;
   }
 
   void _updatePlayerState() {
     PlayerState playerState = PlayerState.idle;
 
-    if (velocity.x < 0 && animations.scale.x > 0) {
-      animations.flipHorizontallyAroundCenter();
-    } else if (velocity.x > 0 && animations.scale.x < 0) {
-      animations.flipHorizontallyAroundCenter();
+    if (velocity.x < 0 && scale.x > 0) {
+      flipHorizontallyAroundCenter();
+    } else if (velocity.x > 0 && scale.x < 0) {
+      flipHorizontallyAroundCenter();
     }
 
     if (velocity.x > 0 || velocity.x < 0) {
@@ -121,7 +185,7 @@ class Player extends BodyComponent<DinoGame> {
       playerState = PlayerState.falling;
     }
 
-    animations.current = playerState;
+    current = playerState;
   }
 }
 

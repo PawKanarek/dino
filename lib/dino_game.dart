@@ -1,23 +1,20 @@
 import 'dart:async';
 
 import 'package:dino/components/level.dart';
+import 'package:dino/components/player.dart';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
-import 'package:flame_forge2d/flame_forge2d.dart';
-
+import 'package:flame/game.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/src/services/keyboard_key.g.dart';
 
-class DinoGame extends Forge2DGame
-    with KeyboardEvents, DragCallbacks, HasCollisionDetection {
+class DinoGame extends FlameGame
+    with HasKeyboardHandlerComponents, DragCallbacks, HasCollisionDetection {
   late JoystickComponent joystick;
-
+  late final CameraComponent cam;
+  Player player = Player(characterName: "Mask Dude");
   bool showJoystick = false; // Platform.isAndroid || Platform.isIOS;
   double fps = 0;
-  bool isLeftKeyPressed = false;
-  bool isRightKeyPressed = false;
-  bool isDownKeyPressed = false;
-  bool isUpOrSpacePressed = false;
 
   @override
   Color backgroundColor() => const Color(0xFF211F30);
@@ -26,11 +23,30 @@ class DinoGame extends Forge2DGame
   FutureOr<void> onLoad() async {
     // loads all images into cache (this might be slow)
     await images.loadAllImages();
-    camera.viewport.add(FpsTextComponent());
-    camera.viewport.add(_joystick());
-    camera.viewfinder.zoom = 10;
-    add(Level(levelName: "level_01"));
+
+    final world = Level(
+      player: player,
+      levelName: "level_03",
+    );
+    cam = CameraComponent.withFixedResolution(
+      world: world,
+      width: 640,
+      height: 360,
+      hudComponents: showJoystick ? [_joystick()] : null,
+    );
+    cam.viewfinder.anchor = Anchor.topLeft;
+
+    addAll([cam, world]);
     return super.onLoad();
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (kDebugMode) {
+      _renderFps(canvas);
+    }
+
+    super.render(canvas);
   }
 
   @override
@@ -39,26 +55,15 @@ class DinoGame extends Forge2DGame
       _updateJoystick();
     }
 
+    if (kDebugMode) {
+      _calculateFps(dt);
+    }
+
     super.update(dt);
   }
 
-  @override
-  KeyEventResult onKeyEvent(
-      RawKeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    // other way https://docs.flame-engine.org/latest/flame/inputs/keyboard_input.html
-    isLeftKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyA)) ||
-        keysPressed.contains(LogicalKeyboardKey.arrowLeft);
-
-    isRightKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyD)) ||
-        keysPressed.contains(LogicalKeyboardKey.arrowRight);
-
-    isUpOrSpacePressed = keysPressed.contains((LogicalKeyboardKey.keyW)) ||
-        keysPressed.contains(LogicalKeyboardKey.arrowUp);
-
-    isDownKeyPressed = keysPressed.contains((LogicalKeyboardKey.keyS)) ||
-        keysPressed.contains(LogicalKeyboardKey.arrowDown);
-
-    return KeyEventResult.handled;
+  void _calculateFps(double t) {
+    fps = 1 / t;
   }
 
   JoystickComponent _joystick() {
@@ -74,32 +79,53 @@ class DinoGame extends Forge2DGame
     return joystick;
   }
 
+  void _renderFps(Canvas canvas) {
+    const textStyle = TextStyle(
+      color: Colors.white,
+      fontSize: 20.0,
+    );
+
+    final fpsText = TextSpan(
+      text: 'FPS: ${fps.toStringAsFixed(2)}',
+      style: textStyle,
+    );
+
+    final fpsPainter = TextPainter(
+      text: fpsText,
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.left,
+    );
+
+    fpsPainter.layout();
+    fpsPainter.paint(canvas, const Offset(10, 10));
+  }
+
   void _updateJoystick() {
     switch (joystick.direction) {
       case JoystickDirection.left:
-        isLeftKeyPressed = true;
+        player.isLeftKeyPressed = true;
         break;
       case JoystickDirection.upLeft:
-        isLeftKeyPressed = true;
-        isUpOrSpacePressed = true;
+        player.isLeftKeyPressed = true;
+        player.isUpOrSpacePressed = true;
         break;
       case JoystickDirection.downLeft:
-        isLeftKeyPressed = true;
+        player.isLeftKeyPressed = true;
         break;
       case JoystickDirection.right:
-        isRightKeyPressed = true;
+        player.isRightKeyPressed = true;
         break;
       case JoystickDirection.upRight:
-        isRightKeyPressed = true;
-        isUpOrSpacePressed = true;
+        player.isRightKeyPressed = true;
+        player.isUpOrSpacePressed = true;
         break;
       case JoystickDirection.downRight:
-        isRightKeyPressed = true;
+        player.isRightKeyPressed = true;
         break;
       default:
-        isLeftKeyPressed = false;
-        isRightKeyPressed = false;
-        isUpOrSpacePressed = false;
+        player.isLeftKeyPressed = false;
+        player.isRightKeyPressed = false;
+        player.isUpOrSpacePressed = false;
         break;
     }
   }
