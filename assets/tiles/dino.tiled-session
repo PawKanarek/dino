@@ -8,19 +8,28 @@
         "."
     ],
     "fileStates": {
+        "bg_tileset.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
         "dino.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "dino1.tsx": {
             "scaleInDock": 1,
             "scaleInEditor": 1
         },
         "level_01.tmx": {
             "expandedObjectLayers": [
-                2
+                2,
+                3
             ],
             "scale": 1.13,
-            "selectedLayer": 0,
+            "selectedLayer": 2,
             "viewCenter": {
-                "x": 276.9911504424779,
-                "y": 184.51327433628313
+                "x": 320.7964601769912,
+                "y": 184.070796460177
             }
         },
         "level_02.tmx": {
@@ -29,16 +38,18 @@
                 3
             ],
             "scale": 1.260234375,
-            "selectedLayer": 0,
+            "selectedLayer": 1,
             "viewCenter": {
-                "x": 345.9673919781787,
-                "y": 315.4175190626744
+                "x": 493.55898580373184,
+                "y": 195.59853697848865
             }
         }
     },
     "last.imagePath": "/Users/raix/git/dino/assets/images/Terrain",
+    "map.fixedSize": false,
     "map.height": 23,
     "map.lastUsedFormat": "tmx",
+    "map.orientation": "1",
     "map.tileHeight": 16,
     "map.tileWidth": 16,
     "map.width": 40,
@@ -52,7 +63,9 @@
     "recentFiles": [
         "dino.tsx",
         "level_01.tmx",
-        "level_02.tmx"
+        "level_02.tmx",
+        "bg_tileset.tsx",
+        "dino1.tsx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.tileSize": {

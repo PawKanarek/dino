@@ -1,33 +1,28 @@
 import 'dart:async';
 
 import 'package:dino/consts.dart';
-import 'package:dino/dino_game.dart';
 import 'package:flame/components.dart';
+import 'package:flame/parallax.dart';
+import 'package:flutter/material.dart';
 
-class BackgroundTile extends SpriteComponent with HasGameRef<DinoGame> {
+class BackgroundTile extends ParallaxComponent {
   final String color;
   BackgroundTile({
     this.color = "Gray",
-    position,
-  }) : super(position: position);
+    super.position,
+  });
 
   @override
-  FutureOr<void> onLoad() {
+  FutureOr<void> onLoad() async {
     priority = -9999;
-    size = Vector2.all(Consts.bgTileSize + 0.5); // offset to fix spacings
-    sprite = Sprite(game.images.fromCache("Background/$color.png"));
-    return super.onLoad();
+    size = Vector2.all(Consts.bgTileSize);
+    parallax = await game.loadParallax(
+      [ParallaxImageData("Background/$color.png")],
+      baseVelocity: Vector2(0, -scrollSpeed),
+      repeat: ImageRepeat.repeat,
+      fill: LayerFill.none,
+    );
   }
 
-  final double scrollSpeed = 2;
-
-  @override
-  void update(double dt) {
-    position.y += scrollSpeed;
-    int scrollHeight = (game.size.y / Consts.bgTileSize).floor();
-    if (position.y > scrollHeight * Consts.bgTileSize) {
-      position.y = -Consts.bgTileSize;
-    }
-    super.update(dt);
-  }
+  final double scrollSpeed = 20;
 }

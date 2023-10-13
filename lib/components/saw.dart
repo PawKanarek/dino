@@ -13,13 +13,10 @@ class Saw extends SpriteAnimationComponent
     this.isVertical = false,
     this.offsetNegative = 0,
     this.offsetPositive = 0,
-    position,
-    size,
-  }) : super(
-          position: position,
-          size: size,
-        ) {
-    debugMode = true;
+    super.position,
+    super.size,
+  }) {
+    // debugMode = true;
     if (isVertical) {
       rangeNeg = position.y - offsetNegative * Consts.tileSize;
       rangePos = position.y + offsetPositive * Consts.tileSize;

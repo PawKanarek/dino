@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:ffi';
 import 'dart:math' as math;
 
+import 'package:dino/components/Checkpoint.dart';
 import 'package:dino/components/Fruit.dart';
 import 'package:dino/components/collision_block.dart';
 import 'package:dino/components/level.dart';
@@ -11,15 +13,16 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/extensions.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class Player extends SpriteAnimationGroupComponent
-    with HasGameRef<DinoGame>, KeyboardHandler, CollisionCallbacks {
-  late final RectangleHitbox hitbox;
-  late final SpriteAnimation idleAnimation;
-  late final SpriteAnimation runningAnimation;
-  late final SpriteAnimation jumpingAnimation;
-  late final SpriteAnimation fallingAnimation;
+    with
+        HasGameReference<DinoGame>,
+        KeyboardHandler,
+        CollisionCallbacks,
+        HasVisibility {
+  late RectangleHitbox hitbox;
   final double animationStepTime = 0.05;
   String characterName;
   static const double speeds = 2;
@@ -37,6 +40,7 @@ class Player extends SpriteAnimationGroupComponent
   Vector2 velocity = Vector2.zero();
   bool isFacingRight = true;
   bool isCollidingWithPlatform = false;
+  bool reachedCheckpoint = false;
   Map<Rect, CollisionBlock> collisionBlocks = {};
 
   Level? level;
@@ -44,12 +48,10 @@ class Player extends SpriteAnimationGroupComponent
   late Vector2 startingPosition;
 
   Player({
-    position,
+    super.position,
     this.characterName = 'Ninja Frog',
-  }) : super(
-          position: position,
-        ) {
-    debugMode = true;
+  }) {
+    // debugMode = true;
   }
 
   // other way https://docs.flame-engine.org/latest/flame/inputs/keyboard_input.html
@@ -82,40 +84,69 @@ class Player extends SpriteAnimationGroupComponent
     return super.onLoad();
   }
 
+  bool gotHit = false;
+
   DateTime time = DateTime.now();
   @override
   void update(double dt) {
-    time = DateTime.now();
-    _updatePlayerMovement(dt);
-    _updatePlayerState();
+    if (!gotHit && !reachedCheckpoint) {
+      time = DateTime.now();
+      _updatePlayerMovement(dt);
+      _updatePlayerState();
+    }
     super.update(dt);
   }
 
   void _loadAllAnimations() {
-    idleAnimation = _spriteAnimation("Idle", 11);
-    runningAnimation = _spriteAnimation('Run', 12);
-    fallingAnimation = _spriteAnimation("Fall", 1);
-    jumpingAnimation = _spriteAnimation("Jump", 1);
-
     // sets the List
     animations = {
-      PlayerState.idle: idleAnimation,
-      PlayerState.running: runningAnimation,
-      PlayerState.falling: fallingAnimation,
-      PlayerState.jumping: jumpingAnimation,
+      PlayerState.idle: _spriteAnimation("Idle", 11),
+      PlayerState.running: _spriteAnimation('Run', 12),
+      PlayerState.falling: _spriteAnimation("Fall", 1),
+      PlayerState.jumping: _spriteAnimation("Jump", 1),
+      PlayerState.hit: _spriteAnimation("Hit", 7, loop: false),
+      PlayerState.appearing: _specialSpriteAnimation(
+        "Appearing",
+        7,
+        loop: false,
+      ),
+      PlayerState.disappearing:
+          _specialSpriteAnimation("Disappearing", 7, loop: false),
     };
 
     current = PlayerState.idle;
   }
 
-  SpriteAnimation _spriteAnimation(String state, int amount) {
+  SpriteAnimation _spriteAnimation(
+    String state,
+    int amount, {
+    bool loop = true,
+    int size = 32,
+  }) {
     return SpriteAnimation.fromFrameData(
-      game.images
-          .fromCache('Main Characters/$characterName/$state (32x32).png'),
+      game.images.fromCache(
+          'Main Characters/$characterName/$state (${size}x$size).png'),
       SpriteAnimationData.sequenced(
         amount: amount,
         stepTime: animationStepTime,
-        textureSize: Vector2.all(32),
+        textureSize: Vector2(size.toDouble(), size.toDouble()),
+        loop: loop,
+      ),
+    );
+  }
+
+  SpriteAnimation _specialSpriteAnimation(
+    String state,
+    int amount, {
+    bool loop = true,
+  }) {
+    return SpriteAnimation.fromFrameData(
+      game.images.fromCache('Main Characters/$state (96x96).png'),
+      SpriteAnimationData.sequenced(
+        amount: amount,
+        stepTime: animationStepTime,
+        textureSize: Vector2.all(96),
+        loop: loop,
       ),
     );
   }
@@ -173,6 +204,7 @@ class Player extends SpriteAnimationGroupComponent
       Set<Vector2> intersectionPoints, PositionComponent other) {
     if (other is Fruit) other.onCollidedWithPlayer();
     if (other is Saw) _respawn();
+    if (other is Checkpoint) _reachedCheckpoint();
 
     super.onCollisionStart(intersectionPoints, other);
   }
@@ -200,7 +232,41 @@ class Player extends SpriteAnimationGroupComponent
   }
 
   void _respawn() {
-    position = startingPosition;
+    gotHit = true;
+    current = PlayerState.hit;
+    final hitAnimation = animationTickers![PlayerState.hit]!;
+    hitAnimation.completed.whenComplete(() {
+      current = PlayerState.appearing;
+      scale.x = 1;
+      position = startingPosition - Vector2.all(32);
+      hitAnimation.reset();
+      final appearingAnimation = animationTickers![PlayerState.appearing]!;
+      appearingAnimation.completed.whenComplete(() {
+        position = startingPosition;
+        current = PlayerState.idle;
+        gotHit = false;
+        appearingAnimation.reset();
+      });
+    });
+  }
+
+  void _reachedCheckpoint() {
+    if (reachedCheckpoint) {
+      return;
+    }
+    reachedCheckpoint = true;
+    current = PlayerState.disappearing;
+    if (scale.x > 0) {
+      position = position - Vector2.all(32);
+    } else if (scale.x < 0) {
+      position = position + Vector2(32, -32);
+    }
+    final disapearingAnimation = animationTickers![PlayerState.disappearing]!;
+    disapearingAnimation.completed.whenComplete(() {
+      current = PlayerState.idle;
+      game.loadNextLevel();
+      reachedCheckpoint = false;
+    });
   }
 }
 
@@ -209,6 +275,9 @@ enum PlayerState {
   running,
   jumping,
   falling,
+  hit,
+  appearing,
+  disappearing,
 }
 
 enum Side { left, top, right, bottom }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dino/components/Checkpoint.dart';
 import 'package:dino/components/Fruit.dart';
 import 'package:dino/components/background_tile.dart';
 import 'package:dino/components/collision_block.dart';
@@ -11,19 +12,21 @@ import 'package:flame/components.dart';
 import 'package:flame_tiled/flame_tiled.dart';
 import 'package:flutter/services.dart';
 
-class Level extends World with HasGameRef<DinoGame> {
+class Level extends World with HasGameReference<DinoGame> {
   RectangleComponent debugRect = RectangleComponent();
-  final Player player;
+  late Player player;
   late TiledComponent level;
   final String levelName;
   Map<Rect, CollisionBlock> collisionBlocks = {};
 
-  Level({required this.levelName, required this.player});
+  Level({required this.levelName});
 
   @override
   FutureOr<void> onLoad() async {
     level = await TiledComponent.load(
-        "$levelName.tmx", Vector2.all(Consts.tileSize));
+      "$levelName.tmx",
+      Vector2.all(Consts.tileSize),
+    );
 
     add(level);
     // debugArea.debugMode = true;
@@ -40,22 +43,14 @@ class Level extends World with HasGameRef<DinoGame> {
   void _scorllingBackground() {
     final backgroundLayer = level.tileMap.getLayer('background');
 
-    final numTilesY = (game.size.y / Consts.bgTileSize).floor();
-    final numTilesX = (game.size.x / Consts.bgTileSize).floor();
-
     if (backgroundLayer != null) {
       final bgColor = backgroundLayer.properties.getValue("BackgroundColor");
 
-      for (double x = 0; x < numTilesX; x++) {
-        for (double y = 0; y < numTilesY + 2; y++) {
-          final backgroundTile = BackgroundTile(
-            color: bgColor ?? "Gray",
-            position: Vector2(x * Consts.bgTileSize,
-                y * Consts.bgTileSize - Consts.bgTileSize),
-          );
-          add(backgroundTile);
-        }
-      }
+      final backgroundTile = BackgroundTile(
+        color: bgColor ?? "Gray",
+        position: Vector2(0, 0),
+      );
+      add(backgroundTile);
     }
   }
 
@@ -63,24 +58,30 @@ class Level extends World with HasGameRef<DinoGame> {
     final collistionsLayer = level.tileMap.getLayer<ObjectGroup>('collisions');
 
     if (collistionsLayer != null) {
-      for (final collision in collistionsLayer.objects) {
-        switch (collision.class_) {
+      for (final block in collistionsLayer.objects) {
+        switch (block.class_) {
           case 'platform':
             final platform = CollisionBlock(
-              position: Vector2(collision.x, collision.y),
-              size: Vector2(collision.width, collision.height),
+              position: Vector2(block.x, block.y),
+              size: Vector2(block.width, block.height),
               isPlatform: true,
             );
             collisionBlocks[platform.toRect()] = platform;
             add(platform);
             break;
+          case 'checkpoint':
+            final checkpoint = Checkpoint(
+                position: Vector2(block.x, block.y),
+                size: Vector2(block.width, block.height));
+            add(checkpoint);
+            break;
           default:
-            final block = CollisionBlock(
-              position: Vector2(collision.x, collision.y),
-              size: Vector2(collision.width, collision.height),
+            final collision = CollisionBlock(
+              position: Vector2(block.x, block.y),
+              size: Vector2(block.width, block.height),
             );
-            collisionBlocks[block.toRect()] = block;
-            add(block);
+            collisionBlocks[collision.toRect()] = collision;
+            add(collision);
             break;
         }
       }
@@ -92,32 +93,32 @@ class Level extends World with HasGameRef<DinoGame> {
     final spawnPointsLayer = level.tileMap.getLayer<ObjectGroup>("spawnPoints");
 
     if (spawnPointsLayer != null) {
-      for (final spawnPoint in spawnPointsLayer.objects) {
-        switch (spawnPoint.class_) {
+      for (final block in spawnPointsLayer.objects) {
+        switch (block.class_) {
           case 'player':
-            player.position = Vector2(spawnPoint.x, spawnPoint.y);
+            player = Player(characterName: "Mask Dude");
+            player.position = Vector2(block.x, block.y);
             player.level = this;
+            player.x = 1;
             add(player);
             break;
           case 'Fruits':
             final fruit = Fruit(
-                fruit: spawnPoint.name,
-                position: Vector2(spawnPoint.x, spawnPoint.y),
-                size: Vector2(spawnPoint.width, spawnPoint.height));
+                fruit: block.name,
+                position: Vector2(block.x, block.y),
+                size: Vector2(block.width, block.height));
             add(fruit);
             break;
           case 'Saw':
-            final isVertical = spawnPoint.properties.getValue("isVertical");
-            final offsetNegative =
-                spawnPoint.properties.getValue("offsetNegative");
-            final offsetPositive =
-                spawnPoint.properties.getValue("offsetPositive");
+            final isVertical = block.properties.getValue("isVertical");
+            final offsetNegative = block.properties.getValue("offsetNegative");
+            final offsetPositive = block.properties.getValue("offsetPositive");
             final saw = Saw(
               isVertical: isVertical,
               offsetNegative: offsetNegative,
               offsetPositive: offsetPositive,
-              position: Vector2(spawnPoint.x, spawnPoint.y),
-              size: Vector2(spawnPoint.width, spawnPoint.height),
+              position: Vector2(block.x, block.y),
+              size: Vector2(block.width, block.height),
             );
             add(saw);
             break;

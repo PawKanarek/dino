@@ -1,73 +1,63 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dino/components/level.dart';
-import 'package:dino/components/player.dart';
+import 'package:dino/consts.dart';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-class DinoGame extends FlameGame
-    with HasKeyboardHandlerComponents, DragCallbacks, HasCollisionDetection {
-  late JoystickComponent joystick;
-  late final CameraComponent cam;
-  Player player = Player(characterName: "Mask Dude");
-  bool showJoystick = false; // Platform.isAndroid || Platform.isIOS;
-  double fps = 0;
+class DinoGame extends FlameGame<Level>
+    with
+        SingleGameInstance,
+        HasKeyboardHandlerComponents,
+        DragCallbacks,
+        HasCollisionDetection {
+  late JoystickComponent _joystick;
+  late CameraComponent cam;
+  bool isMobile = Platform.isAndroid || Platform.isIOS;
+  int currentLevel = 0;
+
+  DinoGame({
+    super.world,
+    super.camera,
+  });
 
   @override
   Color backgroundColor() => const Color(0xFF211F30);
+
+  void loadNextLevel() {
+    if (currentLevel < Consts.levelNames.length - 1) {
+      currentLevel++;
+    } else {
+      // game finished
+    }
+  }
 
   @override
   FutureOr<void> onLoad() async {
     // loads all images into cache (this might be slow)
     await images.loadAllImages();
+    _addJoystick();
+    _addFps();
 
-    final world = Level(
-      player: player,
-      levelName: "level_02",
-    );
-    cam = CameraComponent.withFixedResolution(
-      world: world,
-      width: 640,
-      height: 360,
-      hudComponents: showJoystick ? [_joystick()] : null,
-    );
-    cam.viewfinder.anchor = Anchor.topLeft;
-
-    addAll([cam, world]);
     return super.onLoad();
   }
 
   @override
-  void render(Canvas canvas) {
-    if (kDebugMode) {
-      _renderFps(canvas);
-    }
-
-    super.render(canvas);
-  }
-
-  @override
   void update(double dt) {
-    if (showJoystick) {
-      _updateJoystick();
-    }
-
-    if (kDebugMode) {
-      _calculateFps(dt);
-    }
-
+    _updateJoystick();
     super.update(dt);
   }
 
-  void _calculateFps(double t) {
-    fps = 1 / t;
-  }
+  void _addJoystick() {
+    if (!isMobile) {
+      return;
+    }
 
-  JoystickComponent _joystick() {
-    joystick = JoystickComponent(
+    _joystick = JoystickComponent(
       knob: SpriteComponent(
         sprite: Sprite(images.fromCache("HUD/Knob.png")),
       ),
@@ -76,57 +66,47 @@ class DinoGame extends FlameGame
       ),
       margin: const EdgeInsets.only(left: 32, bottom: 32),
     );
-    return joystick;
-  }
-
-  void _renderFps(Canvas canvas) {
-    const textStyle = TextStyle(
-      color: Colors.white,
-      fontSize: 20.0,
-    );
-
-    final fpsText = TextSpan(
-      text: 'FPS: ${fps.toStringAsFixed(2)}',
-      style: textStyle,
-    );
-
-    final fpsPainter = TextPainter(
-      text: fpsText,
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.left,
-    );
-
-    fpsPainter.layout();
-    fpsPainter.paint(canvas, const Offset(10, 10));
+    camera.add(_joystick);
   }
 
   void _updateJoystick() {
-    switch (joystick.direction) {
+    if (!isMobile) {
+      return;
+    }
+
+    switch (_joystick.direction) {
       case JoystickDirection.left:
-        player.isLeftKeyPressed = true;
+        world.player.isLeftKeyPressed = true;
         break;
       case JoystickDirection.upLeft:
-        player.isLeftKeyPressed = true;
-        player.isUpOrSpacePressed = true;
+        world.player.isLeftKeyPressed = true;
+        world.player.isUpOrSpacePressed = true;
         break;
       case JoystickDirection.downLeft:
-        player.isLeftKeyPressed = true;
+        world.player.isLeftKeyPressed = true;
         break;
       case JoystickDirection.right:
-        player.isRightKeyPressed = true;
+        world.player.isRightKeyPressed = true;
         break;
       case JoystickDirection.upRight:
-        player.isRightKeyPressed = true;
-        player.isUpOrSpacePressed = true;
+        world.player.isRightKeyPressed = true;
+        world.player.isUpOrSpacePressed = true;
         break;
       case JoystickDirection.downRight:
-        player.isRightKeyPressed = true;
+        world.player.isRightKeyPressed = true;
         break;
       default:
-        player.isLeftKeyPressed = false;
-        player.isRightKeyPressed = false;
-        player.isUpOrSpacePressed = false;
+        world.player.isLeftKeyPressed = false;
+        world.player.isRightKeyPressed = false;
+        world.player.isUpOrSpacePressed = false;
         break;
     }
+  }
+
+  void _addFps() {
+    if (!kDebugMode) {
+      return;
+    }
+    camera.add(FpsTextComponent());
   }
 }
