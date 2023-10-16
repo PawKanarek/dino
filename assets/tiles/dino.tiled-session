@@ -3,7 +3,7 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "level_02.tmx",
+    "activeFile": "level_01.tmx",
     "expandedProjectPaths": [
         "."
     ],
@@ -25,11 +25,11 @@
                 2,
                 3
             ],
-            "scale": 1.13,
+            "scale": 1.1395,
             "selectedLayer": 2,
             "viewCenter": {
-                "x": 320.7964601769912,
-                "y": 184.070796460177
+                "x": 330.40807371654233,
+                "y": 94.77841158402805
             }
         },
         "level_02.tmx": {
@@ -56,15 +56,16 @@
     "openFiles": [
         "dino.tsx",
         "level_01.tmx",
-        "level_02.tmx"
+        "level_02.tmx",
+        "bg_tileset.tsx"
     ],
     "project": "dino.tiled-project",
     "property.type": "float",
     "recentFiles": [
         "dino.tsx",
-        "level_01.tmx",
-        "level_02.tmx",
         "bg_tileset.tsx",
+        "level_02.tmx",
+        "level_01.tmx",
         "dino1.tsx"
     ],
     "tileset.lastUsedFormat": "tsx",
